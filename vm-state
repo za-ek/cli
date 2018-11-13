@@ -1,0 +1,2 @@
+#!/bin/bash
+vboxmanage list vms | awk '{print $1}' | xargs -L1 VBoxManage showvminfo | grep '^Name\|State' | grep -v mapping | awk '{print $2}' |sed '$!N;s/\n/ /'
