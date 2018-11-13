@@ -1,0 +1,39 @@
+#!/bin/bash
+function getAddress {
+	echo "$1" | cut -d':' -f 1;
+}
+function getPort {
+	echo "$1" | cut -d':' -f 2;
+}	
+
+case "$1" in
+	h)
+		printf "\tportforward - Simplification for iptables port forwarding\n";
+		printf "\t--Usage: portforward tcp|udp|all src dst\n";
+		printf "\t--Example: portforward tcp eth0:10080 192.168.56.100:80\n";
+	;;
+	tcp|udp)	
+		if [ ! -z $2 ] && [ ! -z $3 ]; then
+			iptables -t nat -A PREROUTING -p $1 -i $(getAddress $2) --dport $(getPort $2) -j DNAT --to-destination $(getAddress $3):$(getPort $3)
+			iptables -A FORWARD -p $1 -d $(getAddress $3) --dport $(getPort $3) -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+			echo "Done";
+		else
+			echo "Missing param";
+			$0 h;
+		fi
+	;;
+	all)
+		$0 tcp $2 $3;
+		$0 udp $2 $3;
+	;;
+	*)
+		read -p "Use TCP? [y/N]" -n 1 -r
+		echo    
+		if [[ $REPLY =~ ^[Yy]$ ]]
+		then
+			$0 tcp $1 $2
+		    fi
+	;;
+esac
+
+exit 0;
