@@ -1,0 +1,16 @@
+#!/bin/bash
+# Iptables enable internet on virtualbox DHCP
+
+if [ -z $1 ]; then 
+	echo "VM interface is missing";
+	exit 1;
+fi;
+
+IF="eth0"
+NET=$(ip route | grep $1 | awk '{print $1}');
+
+echo "Using net: $NET";
+
+iptables -A FORWARD -o $IF -i $1 -s $NET -m conntrack --ctstate NEW -j ACCEPT 
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A POSTROUTING -t nat -j MASQUERADE
