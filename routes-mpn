@@ -1,0 +1,64 @@
+#!/bin/bash
+# Сеть:
+# - eth0 - смотрит в интернет
+# - vboxnet0 - VirtualBox 
+# - tun0 - VPN (openvpn, tinc, ...) 
+
+# Интерфейс локальной сети
+IF0=vboxnet0
+# Интерфейс, который смотрит в интернет
+IF1=eth0
+# Интерфейс, который смотри в VPN тунель
+IF2=tun0
+
+# IP-адреса интерфейсов 
+IP1=91.121.71.80 
+IP2=10.8.0.1 
+
+# IP-адреса шлюзов
+P1=91.121.71.80.254 
+P2=10.8.0.6
+
+# Сети 
+P0_NET=192.168.56.0/24
+P1_NET=91.121.71.0/24
+P2_NET=10.8.0.0/24
+
+# Таблицы маршрутизации
+T1="TIF1"
+T2="TIF2"
+
+echo "Default route for $P1_NET";
+ip route add $P1_NET dev $IF1 src $IP1 table $T1
+ip route add default via $P1 table $T1
+
+echo "Default route for $P2_NET";
+ip route add $P2_NET dev $IF2 src $IP2 table $T2
+ip route add default via $P2 table $T2
+
+echo "Routing for $P1_NET via $IF1 with source $IP1";
+ip route add $P1_NET dev $IF1 src $IP1
+echo "Routing for $P2_NET via $IF2 with source $IP2";
+ip route add $P2_NET dev $IF2 src $IP2 
+
+echo "Default route via $P1"
+ip route add default via $P1 
+
+echo "Route via table $T1 for $IP1"
+ip rule add from $IP1 table $T1
+echo "Route via table $T2 for $IP2"
+ip rule add from $IP2 table $T2
+
+
+echo "Local traffic via $IF0 for table $T1"
+ip route add $P0_NET     dev $IF0 table $T1
+ip route add $P2_NET     dev $IF2 table $T1
+ip route add 127.0.0.0/8 dev lo   table $T1
+echo "Local traffic via $IF0 for table $T2"
+ip route add $P0_NET     dev $IF0 table $T2
+ip route add $P1_NET     dev $IF1 table $T2
+ip route add 127.0.0.0/8 dev lo   table $T2
+
+iptables -A FORWARD -o $IF1 -i $IF0 -s $P0_NET -m conntrack --ctstate NEW -j ACCEPT
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A POSTROUTING -t nat -j MASQUERADE
